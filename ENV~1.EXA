@@ -1,0 +1,5 @@
+# Обязательно — API ключ Anthropic
+ANTHROPIC_API_KEY=sk-ant-твой-ключ
+
+# Railway выставляет PORT сам, не трогай
+# PORT=8000

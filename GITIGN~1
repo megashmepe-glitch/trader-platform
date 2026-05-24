@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.env
+memory_store.json
+output_*.txt
+.DS_Store
