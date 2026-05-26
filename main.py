@@ -1,6 +1,6 @@
-import os, json, asyncio
+import os, json, asyncio, base64
 from datetime import datetime
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, HTMLResponse
 from pydantic import BaseModel
@@ -8,7 +8,6 @@ from pydantic import BaseModel
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# ── Models ──────────────────────────────────────────────────────
 class Trade(BaseModel):
     date: str; instrument: str; direction: str; entry: float
     sl: float = 0; tp: float = 0; exit_price: float = 0; volume: float = 1
@@ -24,12 +23,9 @@ class PsychEntry(BaseModel):
 _trades: list = []
 _psych: list = []
 
-# ── Health ──────────────────────────────────────────────────────
 @app.get("/api/health")
-def health():
-    return {"status": "ok", "time": datetime.now().isoformat()}
+def health(): return {"status": "ok", "time": datetime.now().isoformat()}
 
-# ── Trades ──────────────────────────────────────────────────────
 @app.get("/api/trades")
 def get_trades(): return {"trades": _trades}
 
@@ -51,7 +47,6 @@ def get_stats():
     return {"total":len(_trades),"wins":len(wins),"losses":len(_trades)-len(wins),
             "win_rate":round(len(wins)/len(_trades)*100,1),"total_pnl":round(pnl,2)}
 
-# ── Psych ───────────────────────────────────────────────────────
 @app.get("/api/psych")
 def get_psych(): return {"entries": _psych[-30:]}
 
@@ -59,6 +54,58 @@ def get_psych(): return {"entries": _psych[-30:]}
 def add_psych(e: PsychEntry):
     d = e.dict(); d["id"] = int(datetime.now().timestamp()*1000)
     _psych.append(d); return {"ok": True}
+
+# ── ТА Анализ графика (Vision) ──────────────────────────────────
+@app.post("/api/analyze-chart")
+async def analyze_chart(
+    image: UploadFile = File(...),
+    instrument: str = Form(""),
+    timeframe: str = Form(""),
+    question: str = Form(""),
+):
+    import anthropic
+    api_key = os.environ.get("ANTHROPIC_API_KEY","")
+    if not api_key:
+        return {"error": "ANTHROPIC_API_KEY не задан"}
+
+    img_bytes = await image.read()
+    img_b64   = base64.standard_b64encode(img_bytes).decode("utf-8")
+    mime      = image.content_type or "image/png"
+
+    context = []
+    if instrument: context.append(f"Инструмент: {instrument}")
+    if timeframe:  context.append(f"Таймфрейм: {timeframe}")
+    if question:   context.append(f"Вопрос трейдера: {question}")
+    ctx_str = "\n".join(context)
+
+    system = """Ты — опытный трейдер-ментор с 10+ годами опыта.
+Анализируй график как наставник: жёстко, конкретно, по делу.
+
+Структура ответа:
+1. 📊 СТРУКТУРА РЫНКА — тренд, HH/HL или LL/LH, где сейчас цена
+2. 🎯 КЛЮЧЕВЫЕ УРОВНИ — какие уровни правильно отмечены, какие пропущены или лишние
+3. ⚠️ ОШИБКИ — что нарисовано неправильно, что вводит в заблуждение
+4. 📍 ТОЧКА ВХОДА — есть ли сейчас сетап, где вход/стоп/тейк
+5. 💡 СОВЕТЫ — что улучшить в разметке и подходе
+
+Будь конкретным. Называй уровни цифрами если видишь. Не хвали просто так."""
+
+    user_text = f"Проанализируй мой график TradingView.\n{ctx_str}\n\nДай полный разбор как ментор."
+
+    client = anthropic.Anthropic(api_key=api_key)
+    resp = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2000,
+        system=system,
+        messages=[{
+            "role": "user",
+            "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": mime, "data": img_b64}},
+                {"type": "text",  "text": user_text},
+            ]
+        }]
+    )
+    return {"analysis": resp.content[0].text}
 
 # ── Agents SSE ──────────────────────────────────────────────────
 async def agent_stream(task, platform, rounds):
@@ -130,10 +177,9 @@ async def run_agents(req: AgentTask):
         media_type="text/event-stream",
         headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
 
-# ── Frontend (HTML встроен чтобы не зависеть от папки static) ──
 HTML = open(os.path.join(os.path.dirname(__file__), "static", "index.html"), encoding="utf-8").read() \
     if os.path.exists(os.path.join(os.path.dirname(__file__), "static", "index.html")) \
-    else "<h1>Trader Platform работает! Загрузи static/index.html на GitHub.</h1><p><a href='/api/health'>Health check</a></p>"
+    else "<h1>Загрузи static/index.html на GitHub</h1>"
 
 @app.get("/")
 def root(): return HTMLResponse(HTML)
