@@ -1,89 +1,850 @@
-# 🎬 ФИНАЛЬНАЯ ВЕРСИЯ — TIKTOK
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🚀 Trader Platform</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#1c2128;--accent:#00d4aa;--blue:#4a9eff;--red:#f85149;--green:#3fb950;--gold:#f0c418;--purple:#d4a9ff;--text:#e6edf3;--muted:#8b949e;--border:#30363d}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,sans-serif;min-height:100vh}
+/* NAV */
+.topbar{background:linear-gradient(90deg,#0d1117,#1a2744);border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;gap:0;height:52px}
+.logo{font-size:1.1rem;font-weight:700;color:var(--gold);margin-right:32px;white-space:nowrap}
+.nav-tabs{display:flex;height:100%}
+.tab{padding:0 20px;height:100%;border:none;background:none;color:var(--muted);cursor:pointer;font-size:.9rem;border-bottom:3px solid transparent;transition:.2s;display:flex;align-items:center;gap:6px}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--text)}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);margin-left:auto;box-shadow:0 0 8px var(--green)}
+/* PAGES */
+.page{display:none;padding:20px;max-width:1400px;margin:0 auto}
+.page.active{display:block}
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:16px}
+.card-title{font-size:1rem;font-weight:600;color:var(--accent);margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+/* KPI */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;position:relative;overflow:hidden}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent)}
+.kpi.g::after{background:var(--green)}.kpi.r::after{background:var(--red)}.kpi.b::after{background:var(--blue)}.kpi.gold::after{background:var(--gold)}
+.kpi-label{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:6px}
+.kpi-val{font-size:1.7rem;font-weight:700}
+.pos{color:var(--green)}.neg{color:var(--red)}.neutral{color:var(--blue)}
+/* FORM */
+.fg{display:flex;flex-direction:column;gap:4px}
+.fg label{font-size:.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.fg input,.fg select,.fg textarea{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:8px 12px;font-size:.9rem;outline:none;transition:.2s;font-family:inherit}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--accent)}
+.fg textarea{resize:vertical;min-height:56px}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.btn{padding:10px 22px;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600;transition:.2s}
+.btn-p{background:var(--accent);color:#000}.btn-p:hover{background:#00f5c4}
+.btn-d{background:var(--red);color:#fff}.btn-d:hover{opacity:.85}
+.btn-g{background:var(--bg3);border:1px solid var(--border);color:var(--muted)}.btn-g:hover{border-color:var(--accent);color:var(--accent)}
+.btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+/* TABLE */
+.tbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--bg3);padding:9px 12px;font-size:.75rem;color:var(--muted);text-transform:uppercase;white-space:nowrap;text-align:center}
+tbody tr{border-bottom:1px solid var(--border);transition:.15s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:9px 12px;font-size:.86rem;text-align:center;white-space:nowrap}
+.badge{padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:700}
+.badge.win{background:rgba(63,185,80,.15);color:var(--green)}
+.badge.loss{background:rgba(248,81,73,.15);color:var(--red)}
+.badge.long{background:rgba(74,158,255,.12);color:var(--blue)}
+.badge.short{background:rgba(240,196,24,.12);color:var(--gold)}
+.del-btn{background:none;border:none;color:var(--muted);cursor:pointer;padding:3px 7px;border-radius:4px;transition:.2s}
+.del-btn:hover{color:var(--red);background:rgba(248,81,73,.1)}
+/* AGENTS PAGE */
+.agent-config{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end;margin-bottom:14px}
+@media(max-width:700px){.agent-config{grid-template-columns:1fr 1fr}}
+.run-btn{padding:12px 28px;background:linear-gradient(135deg,var(--accent),var(--blue));color:#000;border:none;border-radius:10px;cursor:pointer;font-size:1rem;font-weight:700;transition:.2s;white-space:nowrap}
+.run-btn:hover{opacity:.9;transform:translateY(-1px)}
+.run-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* DEBATE STREAM */
+.debate-stream{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.agent-card{border-radius:10px;overflow:hidden;border:1px solid var(--border)}
+.agent-hdr{padding:10px 16px;font-size:.85rem;font-weight:700;display:flex;align-items:center;gap:8px}
+.agent-hdr.generator{background:rgba(63,185,80,.12);color:var(--green);border-bottom:1px solid rgba(63,185,80,.2)}
+.agent-hdr.critic{background:rgba(248,81,73,.12);color:var(--red);border-bottom:1px solid rgba(248,81,73,.2)}
+.agent-hdr.advocate{background:rgba(240,196,24,.1);color:var(--gold);border-bottom:1px solid rgba(240,196,24,.2)}
+.agent-hdr.optimizer{background:rgba(74,158,255,.12);color:var(--blue);border-bottom:1px solid rgba(74,158,255,.2)}
+.agent-hdr.judge{background:rgba(212,169,255,.1);color:var(--purple);border-bottom:1px solid rgba(212,169,255,.2)}
+.agent-body{padding:14px 16px;background:var(--bg3);font-size:.88rem;line-height:1.7;white-space:pre-wrap;word-break:break-word}
+.thinking-dots::after{content:'...';animation:dots 1.2s infinite}
+@keyframes dots{0%,100%{content:'...'}33%{content:'.'}66%{content:'...'}}
+/* SCORE */
+.score-display{text-align:center;padding:20px}
+.score-circle{width:90px;height:90px;border-radius:50%;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:2rem;font-weight:700;border:3px solid}
+.score-circle.good{border-color:var(--green);color:var(--green)}
+.score-circle.ok{border-color:var(--gold);color:var(--gold)}
+.score-circle.bad{border-color:var(--red);color:var(--red)}
+/* FINAL */
+.final-content{background:var(--bg3);border:2px solid var(--accent);border-radius:12px;padding:18px;margin-top:12px;white-space:pre-wrap;line-height:1.8;font-size:.93rem}
+.copy-btn{margin-top:10px;background:var(--accent);color:#000;border:none;border-radius:8px;padding:9px 20px;cursor:pointer;font-weight:600}
+.copy-btn:hover{background:#00f5c4}
+/* PROGRESS */
+.progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:16px}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:2px;transition:width .5s}
+/* EMPTY */
+.empty{text-align:center;padding:40px;color:var(--muted)}
+.empty .ico{font-size:2.5rem;margin-bottom:10px}
+/* SCROLLBAR */
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+/* CHARTS */
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:800px){.chart-row{grid-template-columns:1fr}}
+canvas{max-height:240px}
+/* PSYCH */
+.mood-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+.mood-btn{padding:6px 14px;border:1px solid var(--border);border-radius:8px;background:var(--bg3);color:var(--text);cursor:pointer;font-size:.9rem;transition:.2s}
+.mood-btn.sel{border-color:var(--accent);background:rgba(0,212,170,.1);color:var(--accent)}
+.violations{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.vcheck{display:flex;align-items:center;gap:8px;padding:7px 12px;background:var(--bg3);border-radius:8px;cursor:pointer;font-size:.87rem;border:1px solid var(--border)}
+.vcheck:hover{border-color:var(--red)}
+.vcheck input{accent-color:var(--red);width:15px;height:15px}
+</style>
+</head>
+<body>
 
----
+<div class="topbar">
+  <div class="logo">🚀 Trader Platform</div>
+  <div class="nav-tabs">
+    <button class="tab active" onclick="go('dashboard')">🎯 Дашборд</button>
+    <button class="tab" onclick="go('journal')">📋 Журнал</button>
+    <button class="tab" onclick="go('add')">➕ Сделка</button>
+    <button class="tab" onclick="go('agents')">🤖 Агенты</button>
+    <button class="tab" onclick="go('psych')">🧠 Психология</button>
+    <button class="tab" onclick="go('charts')">📈 Графики</button>
+    <button class="tab" onclick="go('ta')">📸 ТА Анализ</button>
+    <button class="tab" onclick="go('video')">🎬 Видео</button>
+  </div>
+  <div class="status-dot" id="statusDot" title="API подключён"></div>
+</div>
 
-## ⚡ ХУК (0–3 сек)
+<!-- DASHBOARD -->
+<div class="page active" id="pg-dashboard">
+  <div class="kpi-row" id="kpiRow"></div>
+  <div class="chart-row">
+    <div class="card">
+      <div class="card-title">📈 Equity Curve</div>
+      <canvas id="eqChart"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">🎯 Win / Loss</div>
+      <canvas id="wlChart"></canvas>
+    </div>
+  </div>
+</div>
 
-**Текст на экране:**
+<!-- JOURNAL -->
+<div class="page" id="pg-journal">
+  <div class="card" style="padding:12px 18px;margin-bottom:12px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <span style="color:var(--muted);font-size:.82rem">Фильтр:</span>
+      <select id="fi" onchange="renderTable()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px"><option value="">Все инструменты</option></select>
+      <select id="fd" onchange="renderTable()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px"><option value="">LONG+SHORT</option><option>LONG</option><option>SHORT</option></select>
+      <select id="fr" onchange="renderTable()" style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:5px 10px"><option value="">WIN+LOSS</option><option value="win">WIN</option><option value="loss">LOSS</option></select>
+    </div>
+  </div>
+  <div class="card" style="padding:0">
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Дата</th><th>Инструмент</th><th>Направление</th><th>Вход</th><th>Стоп</th><th>ТП</th><th>Выход</th><th>Объём</th><th>P&L ($)</th><th>Сетап</th><th>Результат</th><th></th></tr></thead>
+        <tbody id="trBody"></tbody>
+      </table>
+    </div>
+    <div class="empty" id="trEmpty" style="display:none"><div class="ico">📭</div><p>Сделок нет. Добавь первую!</p></div>
+  </div>
+</div>
 
-> # "Ты купил. Цена сразу пошла вниз. Это было не один раз."
+<!-- ADD TRADE -->
+<div class="page" id="pg-add">
+  <div class="card">
+    <div class="card-title">➕ Новая сделка</div>
+    <div class="form-grid">
+      <div class="fg"><label>Дата</label><input type="date" id="f-date"></div>
+      <div class="fg"><label>Инструмент</label><input type="text" id="f-instr" placeholder="EURUSD, GOLD…" list="ilist"><datalist id="ilist"><option>EURUSD</option><option>GBPUSD</option><option>USDJPY</option><option>GOLD</option><option>OIL</option><option>BTC/USD</option><option>SP500</option></datalist></div>
+      <div class="fg"><label>Направление</label><select id="f-dir"><option>LONG</option><option>SHORT</option></select></div>
+      <div class="fg"><label>Вход</label><input type="number" id="f-entry" step="any" placeholder="0.0000"></div>
+      <div class="fg"><label>Стоп-лосс</label><input type="number" id="f-sl" step="any" placeholder="0.0000"></div>
+      <div class="fg"><label>Тейк-профит</label><input type="number" id="f-tp" step="any" placeholder="0.0000"></div>
+      <div class="fg"><label>Цена выхода</label><input type="number" id="f-exit" step="any" placeholder="0.0000"></div>
+      <div class="fg"><label>Объём (лоты)</label><input type="number" id="f-vol" step="any" placeholder="1.0"></div>
+      <div class="fg"><label>P&L ($)</label><input type="number" id="f-pnl" step="any" placeholder="+/-"></div>
+      <div class="fg"><label>Сетап</label><input type="text" id="f-setup" placeholder="Пробой, разворот…"></div>
+      <div class="fg"><label>Дисциплина</label><select id="f-disc"><option>Да</option><option>Нет</option></select></div>
+      <div class="fg"><label>Эмоции (1-5)</label><select id="f-emo"><option value="5">5 — Спокойный 😎</option><option value="4">4 — Нормально</option><option value="3" selected>3 — Нейтральный</option><option value="2">2 — Тревога</option><option value="1">1 — Паника 😱</option></select></div>
+    </div>
+    <div class="fg" style="margin-top:12px"><label>Заметки</label><textarea id="f-notes" placeholder="Почему вошёл? Что пошло не так?"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-p" onclick="addTrade()">💾 Сохранить сделку</button>
+      <button class="btn btn-g" onclick="clearForm()">🗑 Очистить</button>
+    </div>
+  </div>
+</div>
 
-**Визуал:** резкий звук уведомления → красная свеча вниз → стоп-кадр
+<!-- AGENTS -->
+<div class="page" id="pg-agents">
+  <div class="card">
+    <div class="card-title">🤖 Multi-Agent Content Studio</div>
+    <div class="agent-config">
+      <div class="fg"><label>Задача для агентов</label><input type="text" id="ag-task" placeholder="Пост про трейдинг, урок из убытка, хук про золото…"></div>
+      <div class="fg"><label>Платформа</label><select id="ag-platform"><option value="tiktok">TikTok</option><option value="instagram">Instagram</option><option value="twitter">Twitter/X</option><option value="telegram">Telegram</option><option value="youtube">YouTube Shorts</option></select></div>
+      <div class="fg"><label>Раунды дебатов</label><select id="ag-rounds"><option value="1">1 — Быстро</option><option value="2" selected>2 — Оптимально</option><option value="3">3 — Глубоко</option></select></div>
+      <button class="run-btn" id="runBtn" onclick="runAgents()">▶ Запустить</button>
+    </div>
+    <div class="progress-bar" id="agProgress" style="display:none"><div class="progress-fill" id="agFill" style="width:0%"></div></div>
+  </div>
 
-> **Почему работает:** конкретика + личное обвинение + пауза. Человек не листает — он узнаёт себя физически.
+  <div id="agStream" class="debate-stream"></div>
 
----
+  <div id="finalBlock" class="card" style="display:none">
+    <div class="card-title">✅ Финальный результат</div>
+    <div class="score-display">
+      <div class="score-circle" id="scoreCircle"></div>
+      <div style="font-size:.9rem;color:var(--muted)" id="verdictText"></div>
+    </div>
+    <div class="final-content" id="finalContent"></div>
+    <button class="copy-btn" onclick="copyFinal()">📋 Скопировать</button>
+  </div>
+</div>
 
-## 📱 ТЕЛО (3–45 сек)
+<!-- PSYCH -->
+<div class="page" id="pg-psych">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <div class="card">
+      <div class="card-title">🧠 Запись дня</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="fg"><label>Дата</label><input type="date" id="p-date"></div>
+        <div class="fg"><label>Настроение</label>
+          <div class="mood-row" id="moodRow">
+            <button class="mood-btn" onclick="setMood(this,'😄 Отлично')">😄</button>
+            <button class="mood-btn" onclick="setMood(this,'😊 Хорошо')">😊</button>
+            <button class="mood-btn" onclick="setMood(this,'😐 Норма')">😐</button>
+            <button class="mood-btn" onclick="setMood(this,'😟 Тревога')">😟</button>
+            <button class="mood-btn" onclick="setMood(this,'😤 Злость')">😤</button>
+          </div>
+        </div>
+        <div class="fg"><label>Главная ошибка</label><input type="text" id="p-mistake" placeholder="Вошёл без сигнала…"></div>
+        <div class="fg"><label>Лучший момент</label><input type="text" id="p-win" placeholder="Выдержал стоп, следовал плану…"></div>
+        <div class="fg"><label>Урок дня</label><textarea id="p-lesson" placeholder="Что понял?"></textarea></div>
+        <button class="btn btn-p" onclick="savePsych()">💾 Сохранить</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">☑️ Чеклист нарушений</div>
+      <div class="violations" id="vlist">
+        <label class="vcheck"><input type="checkbox" id="v1"><span>❌ Торговал без стоп-лосса</span></label>
+        <label class="vcheck"><input type="checkbox" id="v2"><span>❌ Вошёл без сигнала (FOMO)</span></label>
+        <label class="vcheck"><input type="checkbox" id="v3"><span>❌ Усреднил убыточную позицию</span></label>
+        <label class="vcheck"><input type="checkbox" id="v4"><span>❌ Расширил стоп-лосс</span></label>
+        <label class="vcheck"><input type="checkbox" id="v5"><span>❌ Превысил лимит риска дня</span></label>
+        <label class="vcheck"><input type="checkbox" id="v6"><span>❌ Торговал на эмоциях после стопа</span></label>
+        <label class="vcheck"><input type="checkbox" id="v7"><span>❌ Не следовал плану</span></label>
+      </div>
+      <div class="card-title" style="margin-top:20px">📜 История (последние 10)</div>
+      <div id="psychHist" style="max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
 
----
+<!-- TA ANALYSIS -->
+<div class="page" id="pg-ta">
+  <div class="card">
+    <div class="card-title">📸 Анализ графика TradingView</div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="fg"><label>Инструмент</label><input type="text" id="ta-instr" placeholder="EURUSD, GOLD, BTC..."></div>
+      <div class="fg"><label>Таймфрейм</label><select id="ta-tf"><option>M5</option><option>M15</option><option>M30</option><option>H1</option><option>H4</option><option>D1</option><option>W1</option></select></div>
+    </div>
+    <div class="fg" style="margin-bottom:14px">
+      <label>Твой вопрос (необязательно)</label>
+      <input type="text" id="ta-q" placeholder="Правильно ли я определил тренд? Где лучше войти? Что не так с уровнями?">
+    </div>
+    <!-- Зона загрузки скрина -->
+    <div id="ta-drop" onclick="document.getElementById('ta-file').click()"
+      style="border:2px dashed var(--border);border-radius:12px;padding:40px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:14px"
+      ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+      ondragleave="this.style.borderColor='var(--border)'"
+      ondrop="handleDrop(event)">
+      <div style="font-size:2.5rem;margin-bottom:8px">📊</div>
+      <div style="color:var(--muted);font-size:.95rem">Перетащи скриншот TradingView сюда<br><span style="color:var(--accent)">или нажми чтобы выбрать файл</span></div>
+      <input type="file" id="ta-file" accept="image/*" style="display:none" onchange="previewChart(event)">
+    </div>
+    <div id="ta-preview" style="display:none;margin-bottom:14px">
+      <img id="ta-img" style="max-width:100%;border-radius:10px;border:1px solid var(--border)">
+    </div>
+    <button class="btn btn-p" id="ta-btn" onclick="analyzeChart()" style="width:100%;padding:14px;font-size:1rem">
+      🔍 Анализировать график
+    </button>
+  </div>
 
-**[Сцена 1 — 3–10 сек]**
+  <div id="ta-result" class="card" style="display:none">
+    <div class="card-title">🧠 Разбор ментора</div>
+    <div id="ta-text" style="white-space:pre-wrap;line-height:1.8;font-size:.93rem"></div>
+  </div>
+  <div id="ta-loading" class="card" style="display:none;text-align:center;padding:32px">
+    <div style="font-size:2rem;margin-bottom:10px">🔍</div>
+    <div style="color:var(--accent);font-size:1rem">Анализирую твой график...</div>
+    <div style="color:var(--muted);font-size:.85rem;margin-top:6px">Это займёт 10–20 секунд</div>
+  </div>
+</div>
 
-**Текст:**
-> *"Всё внутри кричало — ЗАПРЫГИВАЙ. Ты запрыгнул."*
-> *"И через 3 минуты смотрел как цена едет обратно."*
+<!-- VIDEO GENERATOR -->
+<div class="page" id="pg-video">
+  <div class="card">
+    <div class="card-title">🎬 Генератор видео для TikTok / Reels</div>
+    <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:.85rem;color:var(--muted);line-height:1.6">
+      <b style="color:var(--accent)">Как это работает:</b> вставляешь сценарий → ElevenLabs озвучивает → ffmpeg собирает видео 1080×1920 с субтитрами → скачиваешь готовый MP4
+    </div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="fg" style="grid-column:1/-1">
+        <label>Сценарий (текст для озвучки)</label>
+        <textarea id="vid-script" style="min-height:160px" placeholder="Вставь сюда свой сценарий...&#10;&#10;Каждая строка = отдельный субтитр на экране.&#10;Пиши как говоришь — без лишних символов."></textarea>
+      </div>
+      <div class="fg">
+        <label>Голос (Microsoft Edge TTS — бесплатно)</label>
+        <select id="vid-voice">
+          <option value="ru-RU-DmitryNeural">Дмитрий (муж, нейтральный) 🇷🇺</option>
+          <option value="ru-RU-SvetlanaNeural">Светлана (жен, мягкая) 🇷🇺</option>
+          <option value="ru-RU-DariyaNeural">Дарья (жен, приятная) 🇷🇺</option>
+          <option value="uk-UA-OstapNeural">Остап (муж, укр) 🇺🇦</option>
+        </select>
+      </div>
+    </div>
+    <div style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--accent)">
+      ✅ Бесплатно — использует Microsoft Edge TTS, ключи не нужны
+    </div>
+    <button class="btn btn-p" id="vid-btn" onclick="generateVideo()" style="width:100%;padding:14px;font-size:1rem">
+      🎬 Создать видео
+    </button>
+  </div>
 
-**Визуал:** телефон в руках крупным планом, палец зависает над кнопкой → нажимает → график разворачивается
+  <div id="vid-progress" class="card" style="display:none;text-align:center;padding:32px">
+    <div style="font-size:2.5rem;margin-bottom:12px">🎙️</div>
+    <div id="vid-status" style="color:var(--accent);font-size:1rem;margin-bottom:6px">Озвучиваю сценарий...</div>
+    <div style="color:var(--muted);font-size:.85rem">Обычно занимает 30–90 секунд</div>
+    <div class="progress-bar" style="margin-top:16px;display:block">
+      <div class="progress-fill" id="vid-fill" style="width:30%;animation:pulse 2s infinite"></div>
+    </div>
+  </div>
 
-> **Почему работает:** воссоздаём момент изнутри, не объясняем термин — показываем опыт
+  <div id="vid-result" class="card" style="display:none">
+    <div class="card-title">✅ Видео готово!</div>
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:3rem;margin-bottom:12px">🎉</div>
+      <p style="color:var(--muted);margin-bottom:20px">MP4 файл 1080×1920 (формат TikTok/Reels) с голосом и субтитрами</p>
+      <a id="vid-download" class="btn btn-p" style="font-size:1rem;padding:14px 32px;text-decoration:none;display:inline-block">
+        ⬇️ Скачать MP4
+      </a>
+    </div>
+  </div>
+</div>
 
----
+<!-- CHARTS -->
+<div class="page" id="pg-charts">
+  <div class="chart-row">
+    <div class="card"><div class="card-title">📅 P&L по дням</div><canvas id="dailyChart"></canvas></div>
+    <div class="card"><div class="card-title">🏆 P&L по инструментам</div><canvas id="instrChart"></canvas></div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="card-title">📊 Статистика по инструментам</div>
+    <div id="instrTable"></div>
+  </div>
+</div>
 
-**[Сцена 2 — 10–20 сек]**
+<script>
+// ══════════════════════════════════════════════════════════════
+// CONFIG — при локальном запуске оставь "", при деплое тоже ""
+// ══════════════════════════════════════════════════════════════
+const API = "";  // бэкенд на том же домене
 
-**Текст крупно:**
-> *"Это не интуиция. Это не сигнал."*
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let trades = JSON.parse(localStorage.getItem("tp_trades") || "[]");
+let psychLog = JSON.parse(localStorage.getItem("tp_psych") || "[]");
+let charts = {};
+let selectedMood = "😐 Норма";
+let finalContentText = "";
 
-**Пауза 1 сек — экран пустой**
+// Demo
+if (!trades.length) {
+  trades = [
+    {id:1,date:"2026-05-20",instrument:"EURUSD",direction:"LONG",entry:1.085,sl:1.082,tp:1.091,exit_price:1.0905,volume:1,pnl:55,setup:"Пробой",discipline:"Да",emotion:4,notes:""},
+    {id:2,date:"2026-05-21",instrument:"GOLD",direction:"SHORT",entry:2320,sl:2335,tp:2295,exit_price:2340,volume:0.1,pnl:-150,setup:"Разворот",discipline:"Нет",emotion:2,notes:"Поторопился"},
+    {id:3,date:"2026-05-21",instrument:"BTC/USD",direction:"LONG",entry:68000,sl:66500,tp:71000,exit_price:70800,volume:0.01,pnl:280,setup:"Поддержка H4",discipline:"Да",emotion:5,notes:""},
+    {id:4,date:"2026-05-22",instrument:"EURUSD",direction:"LONG",entry:1.088,sl:1.086,tp:1.092,exit_price:1.087,volume:1,pnl:-20,setup:"Ложный пробой",discipline:"Да",emotion:3,notes:""},
+    {id:5,date:"2026-05-23",instrument:"OIL",direction:"SHORT",entry:78.5,sl:79.8,tp:76,exit_price:76.2,volume:1,pnl:230,setup:"Сопротивление",discipline:"Да",emotion:5,notes:""},
+  ];
+  save();
+}
 
-**Текст:**
-> *"Это твоё тело в панике. Оно не умеет торговать."*
+document.getElementById("f-date").value = new Date().toISOString().split("T")[0];
+document.getElementById("p-date").value = new Date().toISOString().split("T")[0];
 
-**Визуал:** пульс на запястье → переходит в линию графика
+// ══════════════════════════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════════════════════════
+function go(name) {
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"));
+  document.getElementById("pg-"+name).classList.add("active");
+  event.target.classList.add("active");
+  renderAll();
+}
 
-> **Почему работает:** биология вместо термина. "FOMO убивает депозит" — слышали. "Твоё тело в панике не умеет торговать" — попадает иначе.
+// ══════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════
+function save() {
+  localStorage.setItem("tp_trades", JSON.stringify(trades));
+  localStorage.setItem("tp_psych",  JSON.stringify(psychLog));
+}
 
----
+function stats() {
+  const wins = trades.filter(t=>t.pnl>0);
+  const pnl  = trades.reduce((s,t)=>s+t.pnl, 0);
+  return {
+    total: trades.length, wins: wins.length, losses: trades.length-wins.length,
+    pnl: pnl, balance: 10000+pnl,
+    wr: trades.length ? (wins.length/trades.length*100).toFixed(1) : 0,
+    avgW: wins.length ? (wins.reduce((s,t)=>s+t.pnl,0)/wins.length).toFixed(2) : 0,
+  };
+}
 
-**[Сцена 3 — 20–32 сек]**
+// ══════════════════════════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════════════════════════
+function renderAll() {
+  renderKPIs(); renderTable(); renderCharts(); renderPsychHist(); updateInstrFilter();
+}
 
-**Текст:**
-> *"Сделка которую ты упустил — одна из тысяч."*
-> *"Рынок открывается завтра. И послезавтра."*
+function renderKPIs() {
+  const s = stats();
+  document.getElementById("kpiRow").innerHTML = [
+    {l:"Баланс ($)", v:"$"+s.balance.toFixed(2), cls:s.pnl>=0?"pos":"neg", c:"gold"},
+    {l:"P&L", v:(s.pnl>=0?"+":"")+s.pnl.toFixed(2)+"$", cls:s.pnl>=0?"pos":"neg", c:s.pnl>=0?"g":"r"},
+    {l:"Win Rate", v:s.wr+"%", cls:s.wr>=50?"pos":"neg", c:s.wr>=50?"g":"r"},
+    {l:"Сделок", v:s.total, cls:"neutral", c:"b"},
+    {l:"WIN", v:s.wins, cls:"pos", c:"g"},
+    {l:"LOSS", v:s.losses, cls:"neg", c:"r"},
+  ].map(k=>`<div class="kpi ${k.c}"><div class="kpi-label">${k.l}</div><div class="kpi-val ${k.cls}">${k.v}</div></div>`).join("");
+}
 
-**Пауза**
+function updateInstrFilter() {
+  const sel = document.getElementById("fi"); if(!sel) return;
+  const cur = sel.value;
+  const ins = [...new Set(trades.map(t=>t.instrument))].sort();
+  sel.innerHTML = '<option value="">Все инструменты</option>' +
+    ins.map(i=>`<option ${i===cur?"selected":""}>${i}</option>`).join("");
+}
 
-**Текст:**
-> *"Сделка в которую ты вошёл в панике — уже закрыта. В минус."*
+function renderTable() {
+  const fi=document.getElementById("fi")?.value||"";
+  const fd=document.getElementById("fd")?.value||"";
+  const fr=document.getElementById("fr")?.value||"";
+  let data = trades.filter(t=>
+    (!fi||t.instrument===fi)&&(!fd||t.direction===fd)&&
+    (!fr||(fr==="win"?t.pnl>0:t.pnl<=0))
+  );
+  const empty = document.getElementById("trEmpty");
+  const tbody = document.getElementById("trBody");
+  if(!data.length){tbody.innerHTML="";empty.style.display="block";return;}
+  empty.style.display="none";
+  tbody.innerHTML = data.map(t=>{
+    const res = t.pnl>0?"WIN":"LOSS";
+    return `<tr>
+      <td>${t.date}</td><td><b>${t.instrument}</b></td>
+      <td><span class="badge ${t.direction.toLowerCase()}">${t.direction}</span></td>
+      <td>${t.entry}</td><td>${t.sl||"—"}</td><td>${t.tp||"—"}</td><td>${t.exit_price||"—"}</td>
+      <td>${t.volume}</td>
+      <td class="${t.pnl>=0?"pos":"neg"}">${t.pnl>=0?"+":""}${t.pnl.toFixed(2)}</td>
+      <td>${t.setup||"—"}</td>
+      <td><span class="badge ${res.toLowerCase()}">${res}</span></td>
+      <td><button class="del-btn" onclick="delTrade(${t.id})">🗑</button></td>
+    </tr>`;
+  }).join("");
+}
 
-**Визуал:** две колонки — "упустил" (много зелёных свечей) vs "вошёл в панике" (одна красная)
+function addTrade() {
+  const pnl = parseFloat(document.getElementById("f-pnl").value)||0;
+  const instr = document.getElementById("f-instr").value.trim().toUpperCase();
+  if(!instr){alert("Введи инструмент!");return;}
+  trades.push({
+    id:Date.now(),
+    date:document.getElementById("f-date").value,
+    instrument:instr,
+    direction:document.getElementById("f-dir").value,
+    entry:parseFloat(document.getElementById("f-entry").value)||0,
+    sl:parseFloat(document.getElementById("f-sl").value)||0,
+    tp:parseFloat(document.getElementById("f-tp").value)||0,
+    exit_price:parseFloat(document.getElementById("f-exit").value)||0,
+    volume:parseFloat(document.getElementById("f-vol").value)||1,
+    pnl, setup:document.getElementById("f-setup").value,
+    discipline:document.getElementById("f-disc").value,
+    emotion:parseInt(document.getElementById("f-emo").value),
+    notes:document.getElementById("f-notes").value,
+  });
+  save(); clearForm();
+  go("journal");
+  document.querySelector(".tab:nth-child(2)").classList.add("active");
+}
+function clearForm(){
+  ["f-instr","f-entry","f-sl","f-tp","f-exit","f-vol","f-pnl","f-setup","f-notes"].forEach(id=>document.getElementById(id).value="");
+}
+function delTrade(id){if(!confirm("Удалить?"))return;trades=trades.filter(t=>t.id!==id);save();renderAll();}
 
-> **Почему работает:** визуальный контраст вместо объяснения. Человек сам делает вывод.
+// ══════════════════════════════════════════════════════════════
+// AGENTS — SSE СТРИМИНГ
+// ══════════════════════════════════════════════════════════════
+const AGENT_META = {
+  generator:{icon:"✍️",label:"Генератор",cls:"generator"},
+  critic:{icon:"🔥",label:"Критик",cls:"critic"},
+  advocate:{icon:"🛡️",label:"Адвокат",cls:"advocate"},
+  optimizer:{icon:"⚡",label:"Оптимизатор",cls:"optimizer"},
+  judge:{icon:"⚖️",label:"Судья",cls:"judge"},
+};
+const PROGRESS_STEPS = {start:5,generator:20,critic:40,advocate:60,optimizer:80,judge:95,complete:100};
 
----
+function runAgents() {
+  const task = document.getElementById("ag-task").value.trim();
+  if(!task){alert("Введи задачу!");return;}
+  const platform = document.getElementById("ag-platform").value;
+  const rounds = parseInt(document.getElementById("ag-rounds").value);
 
-**[Сцена 4 — 32–45 сек]**
+  document.getElementById("agStream").innerHTML = "";
+  document.getElementById("finalBlock").style.display = "none";
+  document.getElementById("agProgress").style.display = "block";
+  document.getElementById("agFill").style.width = "5%";
+  document.getElementById("runBtn").disabled = true;
 
-**Текст:**
-> *"Поймал зуд — не закрывай приложение."*
+  let activeCardId = null;
 
-**Пауза**
+  fetch(API+"/api/agents/run", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({task, platform, rounds}),
+  }).then(resp=>{
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-**Текст крупно:**
-> *"Напиши в заметках: что именно я чувствую прямо сейчас."*
+    function read(){
+      reader.read().then(({done,value})=>{
+        if(done){document.getElementById("runBtn").disabled=false;return;}
+        buffer += decoder.decode(value, {stream:true});
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop();
+        lines.forEach(line=>{
+          if(!line.startsWith("data:")) return;
+          try {
+            const ev = JSON.parse(line.slice(5).trim());
+            handleSSE(ev);
+          } catch(e){}
+        });
+        read();
+      });
+    }
+    read();
+  }).catch(err=>{
+    document.getElementById("agStream").innerHTML +=
+      `<div class="card" style="border-color:var(--red);padding:16px;color:var(--red)">
+        ⚠️ Ошибка подключения к API.<br>
+        <small>Убедись что бэкенд запущен и ANTHROPIC_API_KEY задан.</small><br>
+        <small style="color:var(--muted)">${err}</small>
+      </div>`;
+    document.getElementById("runBtn").disabled=false;
+  });
 
-**Мелко под ним:**
-> *"Одно предложение. Потом смотри на цену."*
+  function handleSSE(ev) {
+    const fill = document.getElementById("agFill");
+    const stream = document.getElementById("agStream");
 
-**Визуал:** открываются заметки на телефоне → человек пишет → потом спокойно смотрит на график
+    if(ev.type==="start"){
+      fill.style.width="10%";
+      return;
+    }
+    if(ev.type==="agent_start"){
+      const meta = AGENT_META[ev.agent]||{icon:"🤖",label:ev.agent,cls:"generator"};
+      const id = "card-"+ev.agent+"-"+Date.now();
+      activeCardId = id;
+      stream.innerHTML += `
+        <div class="agent-card" id="${id}">
+          <div class="agent-hdr ${meta.cls}">${meta.icon} ${meta.label} <span class="thinking-dots" style="font-size:.8rem;margin-left:4px;opacity:.7">думает</span></div>
+          <div class="agent-body" id="body-${id}">…</div>
+        </div>`;
+      stream.lastElementChild.scrollIntoView({behavior:"smooth",block:"end"});
+      const step = PROGRESS_STEPS[ev.agent]||50;
+      fill.style.width=step+"%";
+      return;
+    }
+    if(ev.type==="agent_done"){
+      if(activeCardId){
+        const body = document.getElementById("body-"+activeCardId);
+        if(body) body.textContent = ev.text;
+        const hdr = document.getElementById(activeCardId)?.querySelector(".thinking-dots");
+        if(hdr) hdr.remove();
+      }
+      return;
+    }
+    if(ev.type==="complete"){
+      fill.style.width="100%";
+      finalContentText = ev.text;
+      const score = ev.score||7.5;
+      const circle = document.getElementById("scoreCircle");
+      circle.textContent = score.toFixed(1);
+      circle.className = "score-circle "+(score>=7?"good":score>=5?"ok":"bad");
+      document.getElementById("verdictText").textContent = ev.verdict||"";
+      document.getElementById("finalContent").textContent = ev.text;
+      document.getElementById("finalBlock").style.display = "block";
+      document.getElementById("finalBlock").scrollIntoView({behavior:"smooth"});
+      document.getElementById("runBtn").disabled = false;
+      return;
+    }
+    if(ev.type==="error"){
+      stream.innerHTML += `<div style="color:var(--red);padding:12px">❌ ${ev.text}</div>`;
+      document.getElementById("runBtn").disabled=false;
+    }
+  }
+}
 
-> **Почему работает:** заменяем "закрой график" на действие с механизмом. Заметки создают паузу между импульсом и действием — это реальный когнитивный разрыв, а не просто "отдохни".
+function copyFinal(){
+  navigator.clipboard.writeText(finalContentText)
+    .then(()=>alert("✅ Скопировано!"))
+    .catch(()=>alert(finalContentText));
+}
 
----
+// ══════════════════════════════════════════════════════════════
+// PSYCH
+// ══════════════════════════════════════════════════════════════
+function setMood(btn,mood){
+  document.querySelectorAll(".mood-btn").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel"); selectedMood=mood;
+}
+function savePsych(){
+  const violations=[];
+  for(let i=1;i<=7;i++){
+    const el=document.getElementById("v"+i);
+    if(el&&el.checked) violations.push(el.nextElementSibling.textContent);
+  }
+  psychLog.push({
+    id:Date.now(),
+    date:document.getElementById("p-date").value,
+    mood:selectedMood,
+    mistake:document.getElementById("p-mistake").value,
+    win:document.getElementById("p-win").value,
+    lesson:document.getElementById("p-lesson").value,
+    violations,
+  });
+  save(); renderPsychHist();
+  document.getElementById("p-mistake").value="";
+  document.getElementById("p-win").value="";
+  document.getElementById("p-lesson").value="";
+  for(let i=1;i<=7;i++){const el=document.getElementById("v"+i);if(el)el.checked=false;}
+  alert("✅ Запись сохранена!");
+}
+function renderPsychHist(){
+  const el=document.getElementById("psychHist"); if(!el)return;
+  if(!psychLog.length){el.innerHTML='<p style="color:var(--muted);padding:10px;font-size:.85rem">Записей нет.</p>';return;}
+  el.innerHTML=[...psychLog].reverse().slice(0,10).map(p=>`
+    <div style="padding:10px;border-bottom:1px solid var(--border);font-size:.83rem">
+      <div style="display:flex;justify-content:space-between"><span style="color:var(--blue)">${p.date}</span><span>${p.mood}</span></div>
+      ${p.mistake?`<div style="color:var(--red)">❌ ${p.mistake}</div>`:""}
+      ${p.win?`<div style="color:var(--green)">✅ ${p.win}</div>`:""}
+      ${p.lesson?`<div style="color:var(--muted)">💡 ${p.lesson}</div>`:""}
+    </div>`).join("");
+}
 
-## 🎯 CTA (45–60 сек)
+// ══════════════════════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════════════════════
+function dc(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
 
-**Текст + голос:**
+function renderCharts(){
+  // Equity
+  const ec=document.getElementById("eqChart"); if(!ec)return;
+  dc("eq");
+  const sorted=[...trades].sort((a,b)=>a.date.localeCompare(b.date));
+  let bal=10000; const labels=[],data=[];
+  sorted.forEach(t=>{bal+=t.pnl;labels.push(t.date);data.push(+bal.toFixed(2));});
+  if(!labels.length){labels.push(new Date().toISOString().split("T")[0]);data.push(10000);}
+  charts["eq"]=new Chart(ec,{type:"line",data:{labels,datasets:[{label:"Баланс",data,borderColor:"#00d4aa",backgroundColor:"rgba(0,212,170,.08)",tension:.35,fill:true,pointRadius:3}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}},x:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}}}}});
 
-> *"Напиши в комментах:
+  // Win/Loss donut
+  const wc=document.getElementById("wlChart"); if(!wc)return;
+  dc("wl");
+  const s=stats();
+  charts["wl"]=new Chart(wc,{type:"doughnut",data:{labels:["WIN","LOSS"],datasets:[{data:[s.wins,s.losses],backgroundColor:["rgba(63,185,80,.85)","rgba(248,81,73,.85)"],borderColor:["#3fb950","#f85149"],borderWidth:2}]},options:{responsive:true,plugins:{legend:{labels:{color:"#e6edf3"}}}}});
+
+  // Daily P&L
+  const dc2=document.getElementById("dailyChart"); if(!dc2)return;
+  dc("daily");
+  const dmap={};trades.forEach(t=>{dmap[t.date]=(dmap[t.date]||0)+t.pnl;});
+  const dl=Object.keys(dmap).sort();const dd=dl.map(d=>dmap[d]);
+  charts["daily"]=new Chart(dc2,{type:"bar",data:{labels:dl,datasets:[{label:"P&L ($)",data:dd,backgroundColor:dd.map(v=>v>=0?"rgba(63,185,80,.7)":"rgba(248,81,73,.7)"),borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}},x:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}}}}});
+
+  // Instrument chart
+  const ic=document.getElementById("instrChart"); if(!ic)return;
+  dc("instr");
+  const imap={};trades.forEach(t=>{imap[t.instrument]=(imap[t.instrument]||0)+t.pnl;});
+  const il=Object.keys(imap);const id2=il.map(i=>imap[i]);
+  charts["instr"]=new Chart(ic,{type:"bar",data:{labels:il,datasets:[{label:"P&L ($)",data:id2,backgroundColor:id2.map(v=>v>=0?"rgba(63,185,80,.7)":"rgba(248,81,73,.7)"),borderRadius:4}]},options:{responsive:true,plugins:{legend:{display:false}},scales:{y:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}},x:{grid:{color:"#30363d"},ticks:{color:"#8b949e"}}}}});
+
+  // Instr table
+  const it=document.getElementById("instrTable");
+  if(!it)return;
+  const rows=Object.entries(imap).sort((a,b)=>b[1]-a[1]);
+  it.innerHTML=`<table style="width:100%;border-collapse:collapse">
+    <thead><tr>${["Инструмент","Сделок","WIN","LOSS","Win%","P&L ($)"].map(h=>`<th style="padding:8px;font-size:.75rem;color:var(--muted);text-transform:uppercase;background:var(--bg3);text-align:center">${h}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map(([inst,pnl])=>{
+      const ts=trades.filter(t=>t.instrument===inst);
+      const ws=ts.filter(t=>t.pnl>0);
+      return `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:8px;text-align:center;font-weight:700">${inst}</td>
+        <td style="padding:8px;text-align:center">${ts.length}</td>
+        <td style="padding:8px;text-align:center;color:var(--green)">${ws.length}</td>
+        <td style="padding:8px;text-align:center;color:var(--red)">${ts.length-ws.length}</td>
+        <td style="padding:8px;text-align:center">${(ws.length/ts.length*100).toFixed(0)}%</td>
+        <td style="padding:8px;text-align:center;font-weight:700;color:${pnl>=0?"var(--green)":"var(--red)"}">${pnl>=0?"+":""}${pnl.toFixed(2)}</td>
+      </tr>`;}).join("")}</tbody></table>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TA ANALYSIS
+// ══════════════════════════════════════════════════════════════
+let taFile = null;
+
+function previewChart(e) {
+  const file = e.target.files[0]; if(!file) return;
+  taFile = file;
+  const url = URL.createObjectURL(file);
+  document.getElementById("ta-img").src = url;
+  document.getElementById("ta-preview").style.display = "block";
+  document.getElementById("ta-drop").style.borderColor = "var(--accent)";
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById("ta-drop").style.borderColor = "var(--border)";
+  const file = e.dataTransfer.files[0];
+  if(!file || !file.type.startsWith("image/")) return;
+  taFile = file;
+  const url = URL.createObjectURL(file);
+  document.getElementById("ta-img").src = url;
+  document.getElementById("ta-preview").style.display = "block";
+}
+
+async function analyzeChart() {
+  if(!taFile) { alert("Сначала загрузи скриншот графика!"); return; }
+  document.getElementById("ta-btn").disabled = true;
+  document.getElementById("ta-result").style.display = "none";
+  document.getElementById("ta-loading").style.display = "block";
+
+  const fd = new FormData();
+  fd.append("image", taFile);
+  fd.append("instrument", document.getElementById("ta-instr").value);
+  fd.append("timeframe",  document.getElementById("ta-tf").value);
+  fd.append("question",   document.getElementById("ta-q").value);
+
+  try {
+    const resp = await fetch(API+"/api/analyze-chart", {method:"POST", body:fd});
+    const data = await resp.json();
+    document.getElementById("ta-loading").style.display = "none";
+    if(data.error) {
+      alert("Ошибка: "+data.error); return;
+    }
+    // Форматируем markdown-подобный текст
+    const text = data.analysis
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/#{1,3} /g, '');
+    document.getElementById("ta-text").textContent = text;
+    document.getElementById("ta-result").style.display = "block";
+    document.getElementById("ta-result").scrollIntoView({behavior:"smooth"});
+  } catch(err) {
+    document.getElementById("ta-loading").style.display = "none";
+    alert("Ошибка подключения к API. Проверь что ANTHROPIC_API_KEY задан в Railway.");
+  } finally {
+    document.getElementById("ta-btn").disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIDEO GENERATOR
+// ══════════════════════════════════════════════════════════════
+async function generateVideo() {
+  const script = document.getElementById("vid-script").value.trim();
+  if (!script) { alert("Введи сценарий!"); return; }
+
+  const voiceId  = document.getElementById("vid-voice").value;
+  const elKey    = document.getElementById("vid-el-key").value.trim();
+
+  document.getElementById("vid-btn").disabled = true;
+  document.getElementById("vid-result").style.display = "none";
+  document.getElementById("vid-progress").style.display = "block";
+
+  const steps = ["🎙️ Озвучиваю сценарий...", "✂️ Создаю субтитры...", "🎬 Собираю видео...", "⚡ Финальная обработка..."];
+  let si = 0;
+  const iv = setInterval(() => {
+    document.getElementById("vid-status").textContent = steps[Math.min(si++, steps.length-1)];
+    document.getElementById("vid-fill").style.width = Math.min(20 + si*20, 90)+"%";
+  }, 8000);
+
+  try {
+    const resp = await fetch(API+"/api/generate-video", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({script, voice_id: voiceId, elevenlabs_key: elKey}),
+    });
+
+    clearInterval(iv);
+
+    // Проверяем content-type — если JSON значит ошибка
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await resp.json();
+      alert("Ошибка: " + (data.error || JSON.stringify(data)));
+      return;
+    }
+
+    // Получаем видео как blob
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.getElementById("vid-download");
+    a.href     = url;
+    a.download = "tiktok_video.mp4";
+
+    document.getElementById("vid-fill").style.width = "100%";
+    document.getElementById("vid-progress").style.display = "none";
+    document.getElementById("vid-result").style.display = "block";
+    document.getElementById("vid-result").scrollIntoView({behavior:"smooth"});
+
+  } catch(err) {
+    clearInterval(iv);
+    document.getElementById("vid-progress").style.display = "none";
+    alert("Ошибка: " + err.message + "\nПроверь ELEVENLABS_API_KEY в Railway Variables.");
+  } finally {
+    document.getElementById("vid-btn").disabled = false;
+  }
+}
+
+// ── HEALTH CHECK ──────────────────────────────────────────────
+async function checkHealth(){
+  try{
+    const r=await fetch(API+"/api/health",{signal:AbortSignal.timeout(3000)});
+    if(r.ok) document.getElementById("statusDot").style.background="var(--green)";
+    else throw new Error();
+  }catch{
+    document.getElementById("statusDot").style.background="var(--gold)";
+  }
+}
+checkHealth(); setInterval(checkHealth,30000);
+
+// ── INIT ──────────────────────────────────────────────────────
+renderAll();
+</script>
+</body>
+</html>
