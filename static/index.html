@@ -120,6 +120,7 @@ canvas{max-height:240px}
     <button class="tab" onclick="go('psych')">🧠 Психология</button>
     <button class="tab" onclick="go('charts')">📈 Графики</button>
     <button class="tab" onclick="go('ta')">📸 ТА Анализ</button>
+    <button class="tab" onclick="go('video')">🎬 Видео</button>
   </div>
   <div class="status-dot" id="statusDot" title="API подключён"></div>
 </div>
@@ -289,6 +290,62 @@ canvas{max-height:240px}
     <div style="font-size:2rem;margin-bottom:10px">🔍</div>
     <div style="color:var(--accent);font-size:1rem">Анализирую твой график...</div>
     <div style="color:var(--muted);font-size:.85rem;margin-top:6px">Это займёт 10–20 секунд</div>
+  </div>
+</div>
+
+<!-- VIDEO GENERATOR -->
+<div class="page" id="pg-video">
+  <div class="card">
+    <div class="card-title">🎬 Генератор видео для TikTok / Reels</div>
+    <div style="background:var(--bg3);border-radius:10px;padding:14px;margin-bottom:16px;font-size:.85rem;color:var(--muted);line-height:1.6">
+      <b style="color:var(--accent)">Как это работает:</b> вставляешь сценарий → ElevenLabs озвучивает → ffmpeg собирает видео 1080×1920 с субтитрами → скачиваешь готовый MP4
+    </div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="fg" style="grid-column:1/-1">
+        <label>Сценарий (текст для озвучки)</label>
+        <textarea id="vid-script" style="min-height:160px" placeholder="Вставь сюда свой сценарий...&#10;&#10;Каждая строка = отдельный субтитр на экране.&#10;Пиши как говоришь — без лишних символов."></textarea>
+      </div>
+      <div class="fg">
+        <label>Голос ElevenLabs</label>
+        <select id="vid-voice">
+          <option value="pNInz6obpgDQGcFmaJgB">Adam (муж, нейтральный)</option>
+          <option value="ErXwobaYiN019PkySvjV">Antoni (муж, тёплый)</option>
+          <option value="VR6AewLTigWG4xSOukaG">Arnold (муж, уверенный)</option>
+          <option value="EXAVITQu4vr4xnSDxMaL">Bella (жен, мягкая)</option>
+          <option value="ThT5KcBeYPX3keUQqHPh">Dorothy (жен, приятная)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label>ElevenLabs API ключ</label>
+        <input type="password" id="vid-el-key" placeholder="sk-... (получи на elevenlabs.io)">
+      </div>
+    </div>
+    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--muted)">
+      💡 Ключ можно добавить один раз в Railway Variables как <code style="color:var(--accent)">ELEVENLABS_API_KEY</code> — тогда поле оставь пустым
+    </div>
+    <button class="btn btn-p" id="vid-btn" onclick="generateVideo()" style="width:100%;padding:14px;font-size:1rem">
+      🎬 Создать видео
+    </button>
+  </div>
+
+  <div id="vid-progress" class="card" style="display:none;text-align:center;padding:32px">
+    <div style="font-size:2.5rem;margin-bottom:12px">🎙️</div>
+    <div id="vid-status" style="color:var(--accent);font-size:1rem;margin-bottom:6px">Озвучиваю сценарий...</div>
+    <div style="color:var(--muted);font-size:.85rem">Обычно занимает 30–90 секунд</div>
+    <div class="progress-bar" style="margin-top:16px;display:block">
+      <div class="progress-fill" id="vid-fill" style="width:30%;animation:pulse 2s infinite"></div>
+    </div>
+  </div>
+
+  <div id="vid-result" class="card" style="display:none">
+    <div class="card-title">✅ Видео готово!</div>
+    <div style="text-align:center;padding:20px">
+      <div style="font-size:3rem;margin-bottom:12px">🎉</div>
+      <p style="color:var(--muted);margin-bottom:20px">MP4 файл 1080×1920 (формат TikTok/Reels) с голосом и субтитрами</p>
+      <a id="vid-download" class="btn btn-p" style="font-size:1rem;padding:14px 32px;text-decoration:none;display:inline-block">
+        ⬇️ Скачать MP4
+      </a>
+    </div>
   </div>
 </div>
 
@@ -717,6 +774,65 @@ async function analyzeChart() {
     alert("Ошибка подключения к API. Проверь что ANTHROPIC_API_KEY задан в Railway.");
   } finally {
     document.getElementById("ta-btn").disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// VIDEO GENERATOR
+// ══════════════════════════════════════════════════════════════
+async function generateVideo() {
+  const script = document.getElementById("vid-script").value.trim();
+  if (!script) { alert("Введи сценарий!"); return; }
+
+  const voiceId  = document.getElementById("vid-voice").value;
+  const elKey    = document.getElementById("vid-el-key").value.trim();
+
+  document.getElementById("vid-btn").disabled = true;
+  document.getElementById("vid-result").style.display = "none";
+  document.getElementById("vid-progress").style.display = "block";
+
+  const steps = ["🎙️ Озвучиваю сценарий...", "✂️ Создаю субтитры...", "🎬 Собираю видео...", "⚡ Финальная обработка..."];
+  let si = 0;
+  const iv = setInterval(() => {
+    document.getElementById("vid-status").textContent = steps[Math.min(si++, steps.length-1)];
+    document.getElementById("vid-fill").style.width = Math.min(20 + si*20, 90)+"%";
+  }, 8000);
+
+  try {
+    const resp = await fetch(API+"/api/generate-video", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({script, voice_id: voiceId, elevenlabs_key: elKey}),
+    });
+
+    clearInterval(iv);
+
+    // Проверяем content-type — если JSON значит ошибка
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("application/json")) {
+      const data = await resp.json();
+      alert("Ошибка: " + (data.error || JSON.stringify(data)));
+      return;
+    }
+
+    // Получаем видео как blob
+    const blob = await resp.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.getElementById("vid-download");
+    a.href     = url;
+    a.download = "tiktok_video.mp4";
+
+    document.getElementById("vid-fill").style.width = "100%";
+    document.getElementById("vid-progress").style.display = "none";
+    document.getElementById("vid-result").style.display = "block";
+    document.getElementById("vid-result").scrollIntoView({behavior:"smooth"});
+
+  } catch(err) {
+    clearInterval(iv);
+    document.getElementById("vid-progress").style.display = "none";
+    alert("Ошибка: " + err.message + "\nПроверь ELEVENLABS_API_KEY в Railway Variables.");
+  } finally {
+    document.getElementById("vid-btn").disabled = false;
   }
 }
 
