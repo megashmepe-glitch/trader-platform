@@ -1,4 +1,4 @@
-import os, json, asyncio, base64, textwrap, tempfile, math
+import os, json, asyncio, base64, textwrap, tempfile, math, re
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form
@@ -23,8 +23,9 @@ class PsychEntry(BaseModel):
 
 class VideoRequest(BaseModel):
     script: str
-    voice_id: str = "pNInz6obpgDQGcFmaJgB"  # Adam — хороший русский
+    voice_id: str = "ru-RU-DmitryNeural"
     elevenlabs_key: str = ""
+    bg_image_b64: str = ""  # base64 фонового изображения
 
 _trades: list = []
 _psych:  list = []
@@ -158,16 +159,54 @@ async def generate_video(req: VideoRequest):
         srt_path.write_text(_make_srt(sentences, duration), encoding="utf-8")
 
         # ── 4. Сборка видео (1080x1920 TikTok формат) ────────
-        result = subprocess.run([
-            "ffmpeg", "-y",
-            "-f", "lavfi",
-            "-i", "color=c=0x0d1117:size=1080x1920:rate=25",
+        def clean(t):
+            """Убирает markdown и спецсимволы ffmpeg."""
+            t = re.sub(r"[*#>|`\\']", "", t)
+            t = re.sub(r"\[.*?\]", "", t)   # [текст]
+            t = t.replace(":", " ").replace('"', "").strip()
+            return t
+
+        lines   = _split_script(req.script, max_chars=30)
+        per_ln  = duration / max(len(lines), 1)
+
+        dt = []
+        for i, ln in enumerate(lines):
+            s, e = i * per_ln, (i+1) * per_ln - 0.05
+            safe = clean(ln)
+            if not safe: continue
+            dt.append(
+                f"drawtext=text='{safe}'"
+                f":fontsize=48:fontcolor=white"
+                f":x=(w-text_w)/2:y=h*0.82"
+                f":shadowcolor=black@0.9:shadowx=3:shadowy=3"
+                f":enable='between(t,{s:.2f},{e:.2f})'"
+            )
+        vf_str = ",".join(dt) if dt else "null"
+
+        # Фон — картинка если передана, иначе тёмный градиент
+        # Фон — картинка если передана, иначе тёмный градиент
+        bg_path = None
+        if req.bg_image_b64:
+            bg_path = tmp / "bg.jpg"
+            bg_path.write_bytes(base64.standard_b64decode(req.bg_image_b64))
+
+        if bg_path:
+            bg_filter = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920"
+            vf_str = bg_filter + ("," + vf_str if vf_str != "null" else "")
+
+        cmd = ["ffmpeg", "-y"]
+        if bg_path:
+            cmd += ["-i", str(bg_path)]
+        else:
+            cmd += ["-f","lavfi","-i","color=c=0x0d1117:size=1080x1920:rate=25"]
+        cmd += [
             "-i", str(audio_path),
-            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
-            "-c:a", "aac", "-b:a", "128k",
-            "-shortest",
-            str(video_path)
-        ], capture_output=True, text=True, timeout=300)
+            "-vf", vf_str,
+            "-c:v","libx264","-preset","ultrafast","-crf","26",
+            "-c:a","aac","-b:a","128k",
+            "-shortest", str(video_path)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 
         if result.returncode != 0:
             return {"error": f"ffmpeg ошибка: {result.stderr[-500:]}"}
