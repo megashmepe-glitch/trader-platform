@@ -306,22 +306,17 @@ canvas{max-height:240px}
         <textarea id="vid-script" style="min-height:160px" placeholder="Вставь сюда свой сценарий...&#10;&#10;Каждая строка = отдельный субтитр на экране.&#10;Пиши как говоришь — без лишних символов."></textarea>
       </div>
       <div class="fg">
-        <label>Голос ElevenLabs</label>
+        <label>Голос (Microsoft Edge TTS — бесплатно)</label>
         <select id="vid-voice">
-          <option value="pNInz6obpgDQGcFmaJgB">Adam (муж, нейтральный)</option>
-          <option value="ErXwobaYiN019PkySvjV">Antoni (муж, тёплый)</option>
-          <option value="VR6AewLTigWG4xSOukaG">Arnold (муж, уверенный)</option>
-          <option value="EXAVITQu4vr4xnSDxMaL">Bella (жен, мягкая)</option>
-          <option value="ThT5KcBeYPX3keUQqHPh">Dorothy (жен, приятная)</option>
+          <option value="ru-RU-DmitryNeural">Дмитрий (муж, нейтральный) 🇷🇺</option>
+          <option value="ru-RU-SvetlanaNeural">Светлана (жен, мягкая) 🇷🇺</option>
+          <option value="ru-RU-DariyaNeural">Дарья (жен, приятная) 🇷🇺</option>
+          <option value="uk-UA-OstapNeural">Остап (муж, укр) 🇺🇦</option>
         </select>
       </div>
-      <div class="fg">
-        <label>ElevenLabs API ключ</label>
-        <input type="password" id="vid-el-key" placeholder="sk-... (получи на elevenlabs.io)">
-      </div>
     </div>
-    <div style="background:var(--bg3);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--muted)">
-      💡 Ключ можно добавить один раз в Railway Variables как <code style="color:var(--accent)">ELEVENLABS_API_KEY</code> — тогда поле оставь пустым
+    <div style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--accent)">
+      ✅ Бесплатно — использует Microsoft Edge TTS, ключи не нужны
     </div>
     <button class="btn btn-p" id="vid-btn" onclick="generateVideo()" style="width:100%;padding:14px;font-size:1rem">
       🎬 Создать видео
