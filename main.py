@@ -158,23 +158,33 @@ async def generate_video(req: VideoRequest):
         srt_path.write_text(_make_srt(sentences, duration), encoding="utf-8")
 
         # ── 4. Сборка видео (1080x1920 TikTok формат) ────────
-        # Тёмный градиентный фон + аудио + субтитры
+        # Разбиваем на строки для drawtext
+        lines = _split_script(req.script, max_chars=35)
+        per_line = duration / max(len(lines), 1)
+
+        # Строим фильтр drawtext для каждой строки
+        dt_filters = []
+        for i, line in enumerate(lines):
+            t_start = i * per_line
+            t_end   = (i + 1) * per_line
+            safe = line.replace("'", "").replace(":", "").replace("\\", "")
+            dt_filters.append(
+                f"drawtext=text='{safe}':fontsize=52:fontcolor=white:"
+                f"x=(w-text_w)/2:y=h-200-text_h:"
+                f"shadowcolor=black:shadowx=2:shadowy=2:"
+                f"enable='between(t,{t_start:.2f},{t_end:.2f})'"
+            )
+        vf = ",".join(dt_filters) if dt_filters else "null"
+
         result = subprocess.run([
             "ffmpeg", "-y",
             "-f", "lavfi",
-            "-i", "color=c=0x0d1117:size=1080x1920:rate=30",  # тёмный фон
+            "-i", f"color=c=0x0d1117:size=1080x1920:rate=25",
             "-i", str(audio_path),
-            "-vf", (
-                "drawbox=x=0:y=0:w=iw:h=ih:color=0x1a2744@0.6:t=fill,"  # синий оверлей
-                f"subtitles={srt_path}:force_style='"
-                "FontName=Arial,FontSize=52,PrimaryColour=&H00FFFFFF,"
-                "OutlineColour=&H00000000,Outline=3,Shadow=2,"
-                "Alignment=2,MarginV=200'"
-            ),
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-vf", vf,
+            "-c:v", "libx264", "-preset", "ultrafast", "-crf", "28",
             "-c:a", "aac", "-b:a", "128k",
             "-shortest",
-            "-t", str(duration + 0.5),
             str(video_path)
         ], capture_output=True, text=True, timeout=300)
 
