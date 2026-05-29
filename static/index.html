@@ -315,8 +315,19 @@ canvas{max-height:240px}
         </select>
       </div>
     </div>
+    <div class="fg" style="margin-bottom:14px">
+      <label>Фоновое изображение (необязательно)</label>
+      <div id="bg-drop" onclick="document.getElementById('bg-file').click()"
+        style="border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;cursor:pointer;transition:.2s"
+        ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+        ondragleave="this.style.borderColor='var(--border)'"
+        ondrop="handleBgDrop(event)">
+        <span id="bg-label" style="color:var(--muted);font-size:.9rem">🖼️ Перетащи картинку — если нет, будет тёмный фон</span>
+        <input type="file" id="bg-file" accept="image/*" style="display:none" onchange="setBgFile(event)">
+      </div>
+    </div>
     <div style="background:rgba(0,212,170,.08);border:1px solid rgba(0,212,170,.2);border-radius:8px;padding:12px;margin-bottom:14px;font-size:.82rem;color:var(--accent)">
-      ✅ Бесплатно — использует Microsoft Edge TTS, ключи не нужны
+      ✅ Бесплатно — Microsoft Edge TTS + субтитры автоматически
     </div>
     <button class="btn btn-p" id="vid-btn" onclick="generateVideo()" style="width:100%;padding:14px;font-size:1rem">
       🎬 Создать видео
@@ -793,11 +804,21 @@ async function generateVideo() {
     document.getElementById("vid-fill").style.width = Math.min(20 + si*20, 90)+"%";
   }, 8000);
 
+  // Кодируем фон в base64 если есть
+  let bgB64 = "";
+  if (bgFile) {
+    bgB64 = await new Promise(res => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result.split(",")[1]);
+      r.readAsDataURL(bgFile);
+    });
+  }
+
   try {
     const resp = await fetch(API+"/api/generate-video", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({script, voice_id: voiceId, elevenlabs_key: elKey}),
+      body: JSON.stringify({script, voice_id: voiceId, elevenlabs_key: elKey, bg_image_b64: bgB64}),
     });
 
     clearInterval(iv);
@@ -829,6 +850,26 @@ async function generateVideo() {
   } finally {
     document.getElementById("vid-btn").disabled = false;
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// BG IMAGE
+// ══════════════════════════════════════════════════════════════
+let bgFile = null;
+
+function setBgFile(e) {
+  const f = e.target.files[0]; if(!f) return;
+  bgFile = f;
+  document.getElementById("bg-label").textContent = "✅ " + f.name;
+  document.getElementById("bg-drop").style.borderColor = "var(--accent)";
+}
+function handleBgDrop(e) {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if(!f||!f.type.startsWith("image/")) return;
+  bgFile = f;
+  document.getElementById("bg-label").textContent = "✅ " + f.name;
+  document.getElementById("bg-drop").style.borderColor = "var(--accent)";
 }
 
 // ── HEALTH CHECK ──────────────────────────────────────────────
