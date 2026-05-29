@@ -1,8 +1,9 @@
-import os, json, asyncio, base64
+import os, json, asyncio, base64, textwrap, tempfile, math
 from datetime import datetime
+from pathlib import Path
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, HTMLResponse
+from fastapi.responses import StreamingResponse, HTMLResponse, FileResponse
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -20,8 +21,13 @@ class PsychEntry(BaseModel):
     date: str; mood: str; mistake: str = ""; win_moment: str = ""
     lesson: str = ""; violations: list = []
 
+class VideoRequest(BaseModel):
+    script: str
+    voice_id: str = "pNInz6obpgDQGcFmaJgB"  # Adam — хороший русский
+    elevenlabs_key: str = ""
+
 _trades: list = []
-_psych: list = []
+_psych:  list = []
 
 @app.get("/api/health")
 def health(): return {"status": "ok", "time": datetime.now().isoformat()}
@@ -55,7 +61,7 @@ def add_psych(e: PsychEntry):
     d = e.dict(); d["id"] = int(datetime.now().timestamp()*1000)
     _psych.append(d); return {"ok": True}
 
-# ── ТА Анализ графика (Vision) ──────────────────────────────────
+# ── ТА Анализ ────────────────────────────────────────────────
 @app.post("/api/analyze-chart")
 async def analyze_chart(
     image: UploadFile = File(...),
@@ -67,107 +73,179 @@ async def analyze_chart(
     api_key = os.environ.get("ANTHROPIC_API_KEY","")
     if not api_key:
         return {"error": "ANTHROPIC_API_KEY не задан"}
-
     img_bytes = await image.read()
-    img_b64   = base64.standard_b64encode(img_bytes).decode("utf-8")
+    img_b64   = base64.standard_b64encode(img_bytes).decode()
     mime      = image.content_type or "image/png"
-
-    context = []
-    if instrument: context.append(f"Инструмент: {instrument}")
-    if timeframe:  context.append(f"Таймфрейм: {timeframe}")
-    if question:   context.append(f"Вопрос трейдера: {question}")
-    ctx_str = "\n".join(context)
-
-    system = """Ты — опытный трейдер-ментор с 10+ годами опыта.
-Анализируй график как наставник: жёстко, конкретно, по делу.
-
-Структура ответа:
-1. 📊 СТРУКТУРА РЫНКА — тренд, HH/HL или LL/LH, где сейчас цена
-2. 🎯 КЛЮЧЕВЫЕ УРОВНИ — какие уровни правильно отмечены, какие пропущены или лишние
-3. ⚠️ ОШИБКИ — что нарисовано неправильно, что вводит в заблуждение
-4. 📍 ТОЧКА ВХОДА — есть ли сейчас сетап, где вход/стоп/тейк
-5. 💡 СОВЕТЫ — что улучшить в разметке и подходе
-
-Будь конкретным. Называй уровни цифрами если видишь. Не хвали просто так."""
-
-    user_text = f"Проанализируй мой график TradingView.\n{ctx_str}\n\nДай полный разбор как ментор."
-
+    ctx = []
+    if instrument: ctx.append(f"Инструмент: {instrument}")
+    if timeframe:  ctx.append(f"Таймфрейм: {timeframe}")
+    if question:   ctx.append(f"Вопрос: {question}")
+    system = """Ты — опытный трейдер-ментор. Анализируй жёстко и конкретно.
+Структура: 1)📊 Структура рынка 2)🎯 Ключевые уровни 3)⚠️ Ошибки в разметке 4)📍 Точка входа 5)💡 Советы"""
     client = anthropic.Anthropic(api_key=api_key)
-    resp = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2000,
-        system=system,
-        messages=[{
-            "role": "user",
-            "content": [
-                {"type": "image", "source": {"type": "base64", "media_type": mime, "data": img_b64}},
-                {"type": "text",  "text": user_text},
-            ]
-        }]
-    )
+    resp = client.messages.create(model="claude-sonnet-4-6", max_tokens=2000, system=system,
+        messages=[{"role":"user","content":[
+            {"type":"image","source":{"type":"base64","media_type":mime,"data":img_b64}},
+            {"type":"text","text":"\n".join(ctx)+"\nПроанализируй график как ментор."}
+        ]}])
     return {"analysis": resp.content[0].text}
 
-# ── Agents SSE ──────────────────────────────────────────────────
+# ── Генерация видео ───────────────────────────────────────────
+def _make_srt(sentences: list[str], duration: float) -> str:
+    """Создаёт SRT субтитры с равномерным распределением по времени."""
+    srt = []
+    per = duration / max(len(sentences), 1)
+    for i, s in enumerate(sentences):
+        start = i * per
+        end   = (i + 1) * per - 0.1
+        def fmt(t):
+            h = int(t//3600); m = int((t%3600)//60)
+            s2 = t % 60
+            return f"{h:02d}:{m:02d}:{s2:06.3f}".replace(".",",")
+        srt.append(f"{i+1}\n{fmt(start)} --> {fmt(end)}\n{s}\n")
+    return "\n".join(srt)
+
+def _split_script(script: str, max_chars: int = 60) -> list[str]:
+    """Разбивает сценарий на строки субтитров."""
+    sentences = []
+    for line in script.replace("\n\n","\n").split("\n"):
+        line = line.strip()
+        if not line: continue
+        # длинные строки бьём на куски
+        if len(line) <= max_chars:
+            sentences.append(line)
+        else:
+            words = line.split()
+            chunk = []
+            for w in words:
+                chunk.append(w)
+                if len(" ".join(chunk)) >= max_chars:
+                    sentences.append(" ".join(chunk))
+                    chunk = []
+            if chunk:
+                sentences.append(" ".join(chunk))
+    return sentences or ["..."]
+
+@app.post("/api/generate-video")
+async def generate_video(req: VideoRequest):
+    """Генерирует MP4: озвучка ElevenLabs + субтитры + ffmpeg."""
+    import subprocess, httpx
+
+    el_key = req.elevenlabs_key or os.environ.get("ELEVENLABS_API_KEY","")
+    if not el_key:
+        return {"error": "ELEVENLABS_API_KEY не задан"}
+
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = Path(tmp)
+        audio_path = tmp / "voice.mp3"
+        srt_path   = tmp / "subs.srt"
+        video_path = tmp / "output.mp4"
+
+        # ── 1. Озвучка через ElevenLabs ──────────────────────
+        async with httpx.AsyncClient(timeout=60) as client:
+            r = await client.post(
+                f"https://api.elevenlabs.io/v1/text-to-speech/{req.voice_id}",
+                headers={"xi-api-key": el_key, "Content-Type": "application/json"},
+                json={
+                    "text": req.script,
+                    "model_id": "eleven_multilingual_v2",
+                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
+                }
+            )
+        if r.status_code != 200:
+            return {"error": f"ElevenLabs ошибка {r.status_code}: {r.text[:200]}"}
+        audio_path.write_bytes(r.content)
+
+        # ── 2. Длительность аудио ────────────────────────────
+        probe = subprocess.run(
+            ["ffprobe","-v","error","-show_entries","format=duration",
+             "-of","default=noprint_wrappers=1:nokey=1", str(audio_path)],
+            capture_output=True, text=True
+        )
+        try:
+            duration = float(probe.stdout.strip())
+        except Exception:
+            duration = 30.0
+
+        # ── 3. Субтитры ──────────────────────────────────────
+        sentences = _split_script(req.script)
+        srt_path.write_text(_make_srt(sentences, duration), encoding="utf-8")
+
+        # ── 4. Сборка видео (1080x1920 TikTok формат) ────────
+        # Тёмный градиентный фон + аудио + субтитры
+        result = subprocess.run([
+            "ffmpeg", "-y",
+            "-f", "lavfi",
+            "-i", "color=c=0x0d1117:size=1080x1920:rate=30",  # тёмный фон
+            "-i", str(audio_path),
+            "-vf", (
+                "drawbox=x=0:y=0:w=iw:h=ih:color=0x1a2744@0.6:t=fill,"  # синий оверлей
+                f"subtitles={srt_path}:force_style='"
+                "FontName=Arial,FontSize=52,PrimaryColour=&H00FFFFFF,"
+                "OutlineColour=&H00000000,Outline=3,Shadow=2,"
+                "Alignment=2,MarginV=200'"
+            ),
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "128k",
+            "-shortest",
+            "-t", str(duration + 0.5),
+            str(video_path)
+        ], capture_output=True, text=True, timeout=300)
+
+        if result.returncode != 0:
+            return {"error": f"ffmpeg ошибка: {result.stderr[-500:]}"}
+
+        # ── 5. Отдаём файл ───────────────────────────────────
+        video_bytes = video_path.read_bytes()
+
+    return StreamingResponse(
+        iter([video_bytes]),
+        media_type="video/mp4",
+        headers={"Content-Disposition": "attachment; filename=tiktok_video.mp4"}
+    )
+
+# ── Agents SSE ───────────────────────────────────────────────
 async def agent_stream(task, platform, rounds):
     import anthropic
     api_key = os.environ.get("ANTHROPIC_API_KEY","")
     if not api_key:
         yield f"data: {json.dumps({'type':'error','text':'ANTHROPIC_API_KEY не задан'})}\n\n"; return
-
     client = anthropic.Anthropic(api_key=api_key)
-    plats  = {"tiktok":"TikTok","instagram":"Instagram","twitter":"Twitter/X","telegram":"Telegram","youtube":"YouTube Shorts"}
-    plat   = plats.get(platform,"TikTok")
-
+    plats = {"tiktok":"TikTok","instagram":"Instagram","twitter":"Twitter/X","telegram":"Telegram","youtube":"YouTube Shorts"}
+    plat  = plats.get(platform,"TikTok")
     def sse(t,txt,extra=None):
         return f"data: {json.dumps({'type':t,'text':txt,**(extra or {})},ensure_ascii=False)}\n\n"
-
     def ask(system, user, tokens=1000):
         r = client.messages.create(model="claude-sonnet-4-6", max_tokens=tokens,
             system=system, messages=[{"role":"user","content":user}])
         return r.content[0].text.strip()
-
     try:
-        yield sse("start", f"🚀 Задача: {task}", {"platform":plat})
-        await asyncio.sleep(0.05)
-
+        yield sse("start", f"🚀 Задача: {task}", {"platform":plat}); await asyncio.sleep(0.05)
         yield sse("agent_start","✍️ Генератор...",{"agent":"generator"})
-        content = ask(f"Ты ГЕНЕРАТОР контента для {plat}. ХУК→ТЕЛО→CTA + хэштеги. Дерзко и конкретно.", f"Создай контент: {task}")
-        yield sse("agent_done", content, {"agent":"generator"})
-        await asyncio.sleep(0.05)
-
+        content = ask(f"Ты ГЕНЕРАТОР контента для {plat}. ХУК→ТЕЛО→CTA + хэштеги.", f"Создай контент: {task}")
+        yield sse("agent_done", content, {"agent":"generator"}); await asyncio.sleep(0.05)
         critique = defense = ""
         for i in range(1, min(rounds,3)+1):
             yield sse("agent_start", f"🔥 Критик (раунд {i})...", {"agent":"critic"})
-            critique = ask(f"Ты беспощадный КРИТИК для {plat}. Атакуй: хук, уникальность, CTA, алгоритмы, аудитория.",
-                          f"Задача:{task}\nКонтент:\n{content}\nКритикуй!")
-            yield sse("agent_done", critique, {"agent":"critic"})
-            await asyncio.sleep(0.05)
-
+            critique = ask(f"Ты беспощадный КРИТИК для {plat}.", f"Задача:{task}\nКонтент:\n{content}\nКритикуй!")
+            yield sse("agent_done", critique, {"agent":"critic"}); await asyncio.sleep(0.05)
             yield sse("agent_start", f"🛡️ Адвокат (раунд {i})...", {"agent":"advocate"})
-            defense = ask("Ты АДВОКАТ. Защити контент. Опровергни критику с аргументами.",
-                         f"Задача:{task}\nКонтент:\n{content}\nКритика:\n{critique}\nЗащищай!")
-            yield sse("agent_done", defense, {"agent":"advocate"})
-            await asyncio.sleep(0.05)
-
+            defense = ask("Ты АДВОКАТ. Защити контент.", f"Задача:{task}\nКонтент:\n{content}\nКритика:\n{critique}\nЗащищай!")
+            yield sse("agent_done", defense, {"agent":"advocate"}); await asyncio.sleep(0.05)
         yield sse("agent_start","⚡ Оптимизатор...",{"agent":"optimizer"})
-        optimized = ask(f"Ты ОПТИМИЗАТОР для {plat}. Возьми лучшее из дебатов, создай финальную версию готовую к публикации.",
-                       f"ОРИГИНАЛ:\n{content}\nКРИТИКА:\n{critique}\nЗАЩИТА:\n{defense}\nФинальная версия:")
-        yield sse("agent_done", optimized, {"agent":"optimizer"})
-        await asyncio.sleep(0.05)
-
+        optimized = ask(f"Ты ОПТИМИЗАТОР для {plat}. Создай финальную версию.",
+                       f"ОРИГИНАЛ:\n{content}\nКРИТИКА:\n{critique}\nЗАЩИТА:\n{defense}\nФинал:")
+        yield sse("agent_done", optimized, {"agent":"optimizer"}); await asyncio.sleep(0.05)
         yield sse("agent_start","⚖️ Судья...",{"agent":"judge"})
-        raw = ask("Оцени контент 0-10. Ответь:\nSCORE: [число]\nVERDICT: [1 предложение]",
-                 f"Контент:\n{optimized}")
+        raw = ask("Оцени 0-10.\nSCORE: [число]\nVERDICT: [1 предложение]", f"Контент:\n{optimized}")
         score = 7.5; verdict = raw
         for line in raw.split("\n"):
             if line.startswith("SCORE:"):
                 try: score=float(line.split(":")[1].strip())
                 except: pass
-            elif line.startswith("VERDICT:"):
-                verdict = line.split(":",1)[1].strip()
+            elif line.startswith("VERDICT:"): verdict=line.split(":",1)[1].strip()
         yield sse("agent_done", raw, {"agent":"judge"})
         yield sse("complete", optimized, {"score":score,"verdict":verdict,"original":content})
-
     except Exception as e:
         yield sse("error", f"Ошибка: {str(e)}")
 
