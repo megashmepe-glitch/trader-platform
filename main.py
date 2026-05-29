@@ -128,12 +128,8 @@ def _split_script(script: str, max_chars: int = 60) -> list[str]:
 
 @app.post("/api/generate-video")
 async def generate_video(req: VideoRequest):
-    """Генерирует MP4: озвучка ElevenLabs + субтитры + ffmpeg."""
-    import subprocess, httpx
-
-    el_key = req.elevenlabs_key or os.environ.get("ELEVENLABS_API_KEY","")
-    if not el_key:
-        return {"error": "ELEVENLABS_API_KEY не задан"}
+    """Генерирует MP4: озвучка Edge TTS (бесплатно) + субтитры + ffmpeg."""
+    import subprocess, edge_tts
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -141,20 +137,10 @@ async def generate_video(req: VideoRequest):
         srt_path   = tmp / "subs.srt"
         video_path = tmp / "output.mp4"
 
-        # ── 1. Озвучка через ElevenLabs ──────────────────────
-        async with httpx.AsyncClient(timeout=60) as client:
-            r = await client.post(
-                f"https://api.elevenlabs.io/v1/text-to-speech/{req.voice_id}",
-                headers={"xi-api-key": el_key, "Content-Type": "application/json"},
-                json={
-                    "text": req.script,
-                    "model_id": "eleven_multilingual_v2",
-                    "voice_settings": {"stability": 0.5, "similarity_boost": 0.75}
-                }
-            )
-        if r.status_code != 200:
-            return {"error": f"ElevenLabs ошибка {r.status_code}: {r.text[:200]}"}
-        audio_path.write_bytes(r.content)
+        # ── 1. Озвучка через Microsoft Edge TTS (бесплатно) ──
+        voice = req.voice_id  # передаём имя Edge TTS голоса
+        communicate = edge_tts.Communicate(req.script, voice)
+        await communicate.save(str(audio_path))
 
         # ── 2. Длительность аудио ────────────────────────────
         probe = subprocess.run(
