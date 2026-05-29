@@ -2,5 +2,6 @@ fastapi
 uvicorn
 anthropic
 python-multipart
+httpx
 httptools
 websockets
